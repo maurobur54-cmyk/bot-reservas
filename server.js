@@ -50,7 +50,7 @@ function detectarDia(texto) {
         return new Date().getDay();
     }
 
-    return new Date().getDay(); // por defecto hoy
+    return new Date().getDay();
 }
 
 function esHorarioValido(diaSemana, hora) {
@@ -69,7 +69,7 @@ function sugerirHorarios(diaSemana, reservas) {
     for (let h = HORARIO_INICIO; h <= HORARIO_FIN; h++) {
         if (!esHorarioValido(diaSemana, h)) continue;
 
-        const cantidad = reservas.filter(r => r.hora === h).length;
+        const cantidad = reservas.filter(r => r.hora === h && r.dia === diaSemana).length;
 
         if (cantidad < 2) {
             opciones.push(h + ":00");
@@ -89,6 +89,10 @@ app.get("/mensaje", (req, res) => {
     const texto = (req.query.texto || "").toLowerCase();
     const numero = req.query.numero || "cliente";
 
+    if (!texto) {
+        return res.send("Hola 👋 Bienvenido. Puedes reservar diciendo: 'hoy a las 18' o 'mañana 19'.");
+    }
+
     let reservas = leerReservas();
     const diaSemana = detectarDia(texto);
 
@@ -97,7 +101,7 @@ app.get("/mensaje", (req, res) => {
         reservas = reservas.filter(r => r.numero !== numero);
         guardarReservas(reservas);
         estados[numero] = null;
-        return res.send("Reserva cancelada ✅");
+        return res.send("❌ Tu reserva fue cancelada.");
     }
 
     // MODIFICAR
@@ -117,19 +121,14 @@ app.get("/mensaje", (req, res) => {
 
         reservas = reservas.filter(r => r.numero !== numero);
 
-        if (reservas.filter(r => r.hora === hora).length >= 2) {
+        if (reservas.filter(r => r.hora === hora && r.dia === diaSemana).length >= 2) {
             return res.send("Ese horario ya está lleno.");
         }
 
-        reservas.push({
-            numero,
-            hora,
-            dia: diaSemana
-        });
-
+        reservas.push({ numero, hora, dia: diaSemana });
         guardarReservas(reservas);
 
-        return res.send(`Reserva modificada correctamente ✅`);
+        return res.send(`🔄 Reserva modificada a las ${hora}:00`);
     }
 
     // CONFIRMAR
@@ -140,16 +139,11 @@ app.get("/mensaje", (req, res) => {
             return res.send("Lo siento, se llenó ese horario.");
         }
 
-        reservas.push({
-            numero,
-            hora,
-            dia
-        });
-
+        reservas.push({ numero, hora, dia });
         guardarReservas(reservas);
         estados[numero] = null;
 
-        return res.send("Reserva confirmada ✅");
+        return res.send("✅ Reserva confirmada. ¡Te esperamos!");
     }
 
     // EXTRAER HORA
@@ -161,7 +155,6 @@ app.get("/mensaje", (req, res) => {
     let hora = parseInt(match[1]);
     if (hora < 8) hora += 12;
 
-    // VALIDAR HORARIO
     if (!esHorarioValido(diaSemana, hora)) {
         const sugerencias = sugerirHorarios(diaSemana, reservas);
         return res.send("Horario no disponible. Opciones: " + sugerencias.join(", "));
@@ -174,10 +167,10 @@ app.get("/mensaje", (req, res) => {
 
     estados[numero] = { hora, dia: diaSemana };
 
-    res.send(`¿Confirmas reserva? Responde SI`);
+    res.send(`Perfecto 👍 ¿Confirmas tu reserva a las ${hora}:00? Responde SI`);
 });
 
 // Iniciar servidor
 app.listen(3000, () => {
-    console.log("Servidor PRO inteligente 🚀");
+    console.log("Servidor PRO total 🚀");
 });
