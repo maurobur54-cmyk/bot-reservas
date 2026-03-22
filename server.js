@@ -2,6 +2,7 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const fs = require("fs");
+const path = require("path");
 
 const app = express();
 app.use(bodyParser.json());
@@ -79,18 +80,41 @@ function sugerirHorarios(diaSemana, reservas) {
     return opciones.slice(0, 3);
 }
 
-// Ruta principal
+// RUTA PRINCIPAL
 app.get("/", (req, res) => {
     res.send("Servidor funcionando correctamente ✅");
 });
 
-// Ruta mensajes
+// VER RESERVAS (para panel web)
+app.get("/reservas", (req, res) => {
+    const reservas = leerReservas();
+    res.json(reservas);
+});
+
+// ELIMINAR RESERVA
+app.delete("/reservas/:numero", (req, res) => {
+    const numero = req.params.numero;
+
+    let reservas = leerReservas();
+    reservas = reservas.filter(r => r.numero !== numero);
+
+    guardarReservas(reservas);
+
+    res.send("Eliminado ❌");
+});
+
+// PANEL WEB
+app.get("/panel", (req, res) => {
+    res.sendFile(path.join(__dirname, "panel.html"));
+});
+
+// MENSAJES (LÓGICA DE RESERVAS)
 app.get("/mensaje", (req, res) => {
     const texto = (req.query.texto || "").toLowerCase();
     const numero = req.query.numero || "cliente";
 
     if (!texto) {
-        return res.send("Hola 👋 Bienvenido. Puedes reservar diciendo: 'hoy a las 18' o 'mañana 19'.");
+        return res.send("Hola 👋 Escribe: 'hoy 20' o 'mañana 19'");
     }
 
     let reservas = leerReservas();
@@ -101,34 +125,7 @@ app.get("/mensaje", (req, res) => {
         reservas = reservas.filter(r => r.numero !== numero);
         guardarReservas(reservas);
         estados[numero] = null;
-        return res.send("❌ Tu reserva fue cancelada.");
-    }
-
-    // MODIFICAR
-    if (texto.includes("cambiar") || texto.includes("modificar")) {
-        const match = texto.match(/(\d{1,2})/);
-        if (!match) {
-            return res.send("¿A qué hora quieres cambiar?");
-        }
-
-        let hora = parseInt(match[1]);
-        if (hora < 8) hora += 12;
-
-        if (!esHorarioValido(diaSemana, hora)) {
-            const sugerencias = sugerirHorarios(diaSemana, reservas);
-            return res.send("Horario no disponible. Opciones: " + sugerencias.join(", "));
-        }
-
-        reservas = reservas.filter(r => r.numero !== numero);
-
-        if (reservas.filter(r => r.hora === hora && r.dia === diaSemana).length >= 2) {
-            return res.send("Ese horario ya está lleno.");
-        }
-
-        reservas.push({ numero, hora, dia: diaSemana });
-        guardarReservas(reservas);
-
-        return res.send(`🔄 Reserva modificada a las ${hora}:00`);
+        return res.send("❌ Cancelado");
     }
 
     // CONFIRMAR
@@ -136,20 +133,21 @@ app.get("/mensaje", (req, res) => {
         const { hora, dia } = estados[numero];
 
         if (reservas.filter(r => r.hora === hora && r.dia === dia).length >= 2) {
-            return res.send("Lo siento, se llenó ese horario.");
+            return res.send("Ese horario está lleno.");
         }
 
         reservas.push({ numero, hora, dia });
         guardarReservas(reservas);
         estados[numero] = null;
 
-        return res.send("✅ Reserva confirmada. ¡Te esperamos!");
+        return res.send("✅ Reserva confirmada");
     }
 
     // EXTRAER HORA
     const match = texto.match(/(\d{1,2})/);
+
     if (!match) {
-        return res.send("No entendí la hora. ¿Qué horario deseas?");
+        return res.send("No entendí la hora.");
     }
 
     let hora = parseInt(match[1]);
@@ -157,7 +155,7 @@ app.get("/mensaje", (req, res) => {
 
     if (!esHorarioValido(diaSemana, hora)) {
         const sugerencias = sugerirHorarios(diaSemana, reservas);
-        return res.send("Horario no disponible. Opciones: " + sugerencias.join(", "));
+        return res.send("No disponible. Opciones: " + sugerencias.join(", "));
     }
 
     if (reservas.filter(r => r.hora === hora && r.dia === diaSemana).length >= 2) {
@@ -167,10 +165,10 @@ app.get("/mensaje", (req, res) => {
 
     estados[numero] = { hora, dia: diaSemana };
 
-    res.send(`Perfecto 👍 ¿Confirmas tu reserva a las ${hora}:00? Responde SI`);
+    res.send(`¿Confirmas ${hora}:00? Responde SI`);
 });
 
-// Iniciar servidor
+// INICIAR SERVIDOR
 app.listen(3000, () => {
-    console.log("Servidor PRO total 🚀");
+    console.log("Servidor PRO 🚀");
 });

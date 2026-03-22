@@ -1,0 +1,45 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Reservas</title>
+</head>
+<body>
+
+<h1>📋 Reservas</h1>
+
+<ul id="lista"></ul>
+
+<script>
+async function cargarReservas() {
+    const res = await fetch("/reservas");
+    const data = await res.json();
+
+    const lista = document.getElementById("lista");
+    lista.innerHTML = "";
+
+    data.forEach(r => {
+        const li = document.createElement("li");
+
+        li.innerHTML = `
+            📱 ${r.numero} | 🕒 ${r.hora}:00 | 📅 ${r.dia}
+            <button onclick="eliminar('${r.numero}')">Eliminar</button>
+        `;
+
+        lista.appendChild(li);
+    });
+}
+
+async function eliminar(numero) {
+    await fetch("/reservas/" + numero, {
+        method: "DELETE"
+    });
+
+    cargarReservas();
+}
+
+cargarReservas();
+</script>
+
+</body>
+</html>
